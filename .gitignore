@@ -1,0 +1,11 @@
+# 빌드 산출물
+qm
+qm.exe
+*.o
+*.obj
+*.exe
+a.out
+
+# 에디터/OS
+.vscode/
+.DS_Store
