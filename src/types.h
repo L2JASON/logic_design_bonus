@@ -17,7 +17,7 @@ using Bits = uint64_t;   // 비트 연산용. 시프트할 때 1ULL 써야 함 (
 //   value=1001, mask=0010 (x3 자리가 don't care)
 
 struct CombinedTerm {
-    Bits value;            // mask가 0인 자리의 0/1 값
+    Bits value;            // mask가 0인 자리의 0/1 값 
     Bits mask;             // 1인 자리는 don't care('-')
     Bits coveredMinterms;  // 이 항이 덮는 f=1 minterm들 (don't care 번호는 빼고)
     bool used;             // 병합에 쓰였는지. 끝까지 false인 항이 PI
@@ -38,7 +38,6 @@ struct MintermColumn {
 
 struct SOPCandidate {
     std::vector<CombinedTerm> selectedPIs;  // EPI + 탐색으로 고른 PI 전부
-    int productCount;   // 곱항 수
     int literalCount;   // 리터럴 총개수
     int inverterCount;  // 보수(') 붙은 리터럴 수
 };
@@ -50,9 +49,9 @@ struct ChartResult {
 };
 
 struct InputData {
-    int numVars;                 // 변수 개수 n
-    std::vector<int> minterms;   // f=1 minterm
-    std::vector<int> dontCares;
+    int numVars;                 // 입력 받은 리터럴 종류 수
+    std::vector<int> minterms;   // 입력 받은 f=1 minterm 가변 배열
+    std::vector<int> dontCares;  // 입력 받은 돈케어 가변 배열
 };
 
 // 하위 n비트만 1인 마스크. uint64_t에서 우리가 실제로 쓰는 범위를 자를 때 사용.
