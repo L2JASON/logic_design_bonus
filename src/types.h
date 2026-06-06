@@ -15,6 +15,11 @@ using Bits = uint64_t;   // 비트 연산용. 시프트할 때 1ULL 써야 함 (
 //   coveredMinterms -> 비트 위치 = minterm 번호 (0 ~ 2^n-1)
 // 둘을 섞어 쓰면 무조건 버그. 예: n=4에서 항 x1 x2' - x4 는
 //   value=1001, mask=0010 (x3 자리가 don't care)
+//
+// 자릿값 방향(coveredMinterms): 맨 오른쪽 비트(LSB)가 m0, 그 왼쪽이 m1, m2 ...
+//   즉 minterm k는 비트 k에 들어간다. 예: 0b1010 -> m1, m3 을 덮음.
+//   minterm k 덮는지 검사: (coveredMinterms >> k) & 1ULL
+//   이 방향은 고정 약속이다(value의 x1=MSB/LSB 미정과 별개). 어기면 다 깨짐.
 
 struct CombinedTerm {
     Bits value;            // mask가 0인 자리의 0/1 값 

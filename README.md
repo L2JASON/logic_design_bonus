@@ -64,6 +64,20 @@ parseInput          입력 5줄 -> InputData
 (x3 자리가 don't care라 mask에 표시). 반면 어떤 항이 minterm 1, 5번을 덮으면
 `coveredMinterms`의 1번·5번 비트가 선다. 두 좌표계를 섞어 쓰면 100% 버그다.
 
+**자릿값 방향(`coveredMinterms`)**: 맨 오른쪽 비트(LSB)가 m0, 그 왼쪽으로
+m1, m2 … 순서다. 즉 **minterm 번호 k가 곧 비트 위치 k**다.
+
+```
+비트 위치:  … b3 b2 b1 b0
+minterm  :  … m3 m2 m1 m0      예) 0b1010 -> m1, m3 을 덮음
+```
+
+그래서 "minterm k를 덮는가" 판정은 `(coveredMinterms >> k) & 1ULL`이고,
+반대로 비트마스크를 minterm 번호 목록으로 풀려면 LSB부터 한 칸씩 검사하면 된다
+(`chart.cpp`의 `mintermsOf` 참고). 이 방향은 **고정 약속**이다 — 아래
+"아직 안 정한 것"의 `value` x1 자리(MSB냐 LSB냐) 문제와는 별개이고,
+`coveredMinterms`는 어느 모듈에서나 LSB=m0으로 본다.
+
 우리가 실제로 쓰는 건 하위 n비트뿐이라, 상위 비트를 잘라낼 때 `makeNBitMask(n)`
 (하위 n비트만 1인 마스크)을 쓴다.
 
