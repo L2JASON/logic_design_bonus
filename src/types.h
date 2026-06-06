@@ -25,7 +25,6 @@ struct CombinedTerm {
 
 struct PrimeImplicantRow {
     CombinedTerm term;
-    Bits coveredMinterms;  // term.coveredMinterms 사본. 차트에서 자주 비교해서 따로 둠
     bool selected;
 };
 
