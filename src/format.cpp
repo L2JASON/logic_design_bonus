@@ -1,6 +1,5 @@
 // 입력 파싱 + 결과 출력 (방하영)
 // 입력 포맷과 항->문자열 규칙은 README의 format 항목에.
-// 하이루
 #include "format.h"
 
 InputData parseInput(std::istream& in) {
