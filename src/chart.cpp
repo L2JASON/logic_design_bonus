@@ -34,15 +34,15 @@ ChartResult buildAndReduceChart(
                                         // 딱 하나면 그 PI는 EPI 확정
         bool covered;
     };*/
-    // 결과 구조체 선언
-    ChartResult result;
+    // pi\minterm 표 구조체 선언
+    ChartResult chart;
 
     // 파라미터로 표 구성
     // 1. 파라미터 PIs 배열 -> 행 데이터 (PrimeImplicantRow)
     int rowSize = pis.size();
     for(int i=0;i<rowSize;i++){
         PrimeImplicantRow newPiRow = { pis[i], false };
-        result.remainingRows.push_back(newPiRow);
+        chart.remainingRows.push_back(newPiRow);
     }
     // 2. 파라미터 minterms 배열 -> 열 데이터 (MintermColumn)
     int columnSize = minterms.size();
@@ -50,14 +50,68 @@ ChartResult buildAndReduceChart(
         MintermColumn newMintermCol;
         newMintermCol.mintermValue = minterms[col];
         for(int row=0;row<rowSize;row++){ // 열 데이터에 민텀을 커버하는 PI를 채우기 위해 행 (PI 인덱스) 순회
-            Bits cov = result.remainingRows[row].term.coveredMinterms; // 행 데이터의 coveredminterm 복사
+            Bits cov = chart.remainingRows[row].term.coveredMinterms; // 행 데이터의 coveredminterm 복사
             if ((cov >> newMintermCol.mintermValue) & 1ULL) { // minterms 자릿값까지 쭉 시프트 그 비트가 1 인가?
                 newMintermCol.coveredByRows.push_back(row);
             }
         }
         newMintermCol.covered = false;
-        result.uncoveredCols.push_back(newMintermCol);
+        chart.uncoveredCols.push_back(newMintermCol);
     }
     // 소거 알고리즘
+    // EPI 찾기
+    bool foundNew;
+    do {
+        foundNew = false;
+        for (int col = 0; col < columnSize; col++) {
+            if (chart.uncoveredCols[col].covered) continue;
+            // 아직 안 뽑힌 PI 중 이 열을 덮는 게 몇 개인지 센다 딱 하나면 그 PI가 EPI
+            if (chart.uncoveredCols[col].coveredByRows.size() == 1) {
+                PrimeImplicantRow& epiRow = chart.remainingRows[chart.uncoveredCols[col].coveredByRows[0]];
+                // 그 PI를 EPI 확정: selected=true
+                epiRow.selected = true;
+                // confirmedEPI에 추가
+                chart.confirmedEPI.push_back(epiRow.term);
+                // 그 PI가 덮는 열들 covered=true
+                Bits cov = epiRow.term.coveredMinterms; // epi의 coveredMinterms Bit 복사
+                for (int i = 0; i < columnSize; i++){
+                    // coverd=false 인 열을 순회하며 해당 열 민텀 자릿값까지 쭉 시프트, 그 비트가 1 인가?
+                    if (!chart.uncoveredCols[i].covered && (cov >> chart.uncoveredCols[i].mintermValue) & 1ULL) {
+                        chart.uncoveredCols[i].covered = true;
+                    }
+                }
+                foundNew = true;
+            }
+        }
+    } while (foundNew);
+
+    // 반환할 결과 차트 생성
+    ChartResult result;
+    result.confirmedEPI = chart.confirmedEPI;
+    // selected == flase 행 만 추가
+    for(int i=0; i<rowSize; i++){
+        if (!chart.remainingRows[i].selected){
+            result.remainingRows.push_back(chart.remainingRows[i]);
+        }
+    }
+
+    // covered == false 열 만 추가
+    int resultRowSize = result.remainingRows.size();
+    // result 에서 변화한 행인덱스에 맞게 coveredByRows 재계산
+    for(int i=0; i<columnSize; i++){
+        if (!chart.uncoveredCols[i].covered){
+            MintermColumn newUncoveredCol;
+            newUncoveredCol.mintermValue = chart.uncoveredCols[i].mintermValue;
+            newUncoveredCol.covered = false;
+            for(int row=0;row<resultRowSize;row++){ // 열 데이터에 민텀을 커버하는 PI를 채우기 위해 행 (PI 인덱스) 순회
+                Bits cov = result.remainingRows[row].term.coveredMinterms; // 행 데이터의 coveredminterm 복사
+                if ((cov >> newUncoveredCol.mintermValue) & 1ULL) { // minterms 자릿값까지 쭉 시프트 그 비트가 1 인가?
+                    newUncoveredCol.coveredByRows.push_back(row);
+                }
+            }
+            result.uncoveredCols.push_back(newUncoveredCol);
+        }
+    }
+    
     return result;
 }
