@@ -2,6 +2,7 @@
 // 절차 상세는 README의 chart 항목에.
 
 #include "chart.h"
+#include <algorithm>
 
 ChartResult buildAndReduceChart(
     const std::vector<CombinedTerm>& pis,
@@ -65,6 +66,7 @@ ChartResult buildAndReduceChart(
         foundNew = false;
         for (int col = 0; col < columnSize; col++) {
             if (chart.uncoveredCols[col].covered) continue;
+            // 1. EPI 확정
             // 아직 안 뽑힌 PI 중 이 열을 덮는 게 몇 개인지 센다 딱 하나면 그 PI가 EPI
             if (chart.uncoveredCols[col].coveredByRows.size() == 1) {
                 PrimeImplicantRow& epiRow = chart.remainingRows[chart.uncoveredCols[col].coveredByRows[0]];
@@ -83,6 +85,24 @@ ChartResult buildAndReduceChart(
                 foundNew = true;
             }
         }
+        // 2. 열 지배 축소
+        for (int a = 0; a<columnSize; a++){
+            if(chart.uncoveredCols[a].covered) continue;
+            for(int b = 0; b<columnSize; b++){
+                if(a==b||chart.uncoveredCols[b].covered) continue;
+                bool isInclude = std::includes(
+                    chart.uncoveredCols[a].coveredByRows.begin(),
+                    chart.uncoveredCols[a].coveredByRows.end(),
+                    chart.uncoveredCols[b].coveredByRows.begin(),
+                    chart.uncoveredCols[b].coveredByRows.end());
+                if (isInclude) {
+                    chart.uncoveredCols[a].covered = true;
+                    foundNew = true;
+                    break;
+                }
+            }
+        }
+        // 3. 행 지배 축소
     } while (foundNew);
 
     // 반환할 결과 차트 생성
