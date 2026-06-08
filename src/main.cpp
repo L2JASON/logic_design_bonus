@@ -1,7 +1,3 @@
-// 전체 파이프라인 (이준혁)
-// parseInput -> generatePI -> buildAndReduceChart -> solveCyclicCore -> printResult
-// 각 단계가 주고받는 자료형은 types.h, 알고리즘 설명은 README.
-
 #include "types.h"
 #include "qm.h"
 #include "chart.h"

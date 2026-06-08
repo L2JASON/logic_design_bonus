@@ -8,6 +8,21 @@ std::vector<CombinedTerm> generatePI(
     const std::vector<int>& dontCares,
     int numVars
 ) {
+    std:: vector<CombinedTerm> toReturn;
+
+    for(int i : minterms){
+        CombinedTerm newterm;
+        newterm.value=(Bits)i;
+        newterm.mask=0;
+    }
+    for(int j : dontCares){
+        CombinedTerm newterm;
+        newterm.
+    }
+
+    for(int j: dontCares){
+
+    }
     // TODO(김태현): 비트 수로 그룹 나누고, 인접 그룹끼리 1비트 차이 항을 반복 병합.
     //              끝까지 안 합쳐진 항을 모아서 반환.
     (void)minterms; (void)dontCares; (void)numVars;
