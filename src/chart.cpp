@@ -117,8 +117,8 @@ ChartResult buildAndReduceChart(
                 if(x==y||chart.remainingRows[y].selected) continue;
                 Bits yCov = chart.remainingRows[y].term.coveredMinterms & uncoveredMask;
                 if ((xCov & yCov) == xCov) { // x ⊆ y?
-                    // lteral 수 비용을 따졌을때 x를 소거해도 되는가? popcount(mask) 비교
-                    if (__builtin_popcountll(chart.remainingRows[y].term.mask) >= __builtin_popcountll(chart.remainingRows[x].term.mask)) {
+                    // lteral 수 비용을 따졌을때 x를 소거해도 되는가? x가 더 저렴하다면 소거 금지
+                    if (__builtin_popcountll(chart.remainingRows[y].term.mask) > __builtin_popcountll(chart.remainingRows[x].term.mask)) {
                         // x 소거
                         chart.remainingRows[x].selected = true;
                         foundNew = true;
