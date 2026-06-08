@@ -103,6 +103,30 @@ ChartResult buildAndReduceChart(
             }
         }
         // 3. 행 지배 축소
+        // 현재 안 덮인 열들의 비트마스크 생성
+        Bits uncoveredMask = 0;
+        for (int c = 0; c < columnSize; c++){
+            if (!chart.uncoveredCols[c].covered){
+                uncoveredMask |= (1ULL << chart.uncoveredCols[c].mintermValue);
+            }
+        }
+        for (int x = 0; x<rowSize; x++){
+            if(chart.remainingRows[x].selected) continue;
+            Bits xCov = chart.remainingRows[x].term.coveredMinterms & uncoveredMask;
+            for(int y = 0; y<rowSize; y++){
+                if(x==y||chart.remainingRows[y].selected) continue;
+                Bits yCov = chart.remainingRows[y].term.coveredMinterms & uncoveredMask;
+                if ((xCov & yCov) == xCov) { // x ⊆ y?
+                    // lteral 수 비용을 따졌을때 x를 소거해도 되는가? popcount(mask) 비교
+                    if (__builtin_popcountll(chart.remainingRows[y].term.mask) >= __builtin_popcountll(chart.remainingRows[x].term.mask)) {
+                        // x 소거
+                        chart.remainingRows[x].selected = true;
+                        foundNew = true;
+                        break;
+                    }
+                }
+            }
+        }
     } while (foundNew);
 
     // 반환할 결과 차트 생성
