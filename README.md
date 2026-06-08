@@ -136,14 +136,23 @@ merged.coveredMinterms = a.coveredMinterms | b.coveredMinterms;
 ### chart — buildAndReduceChart
 
 1. PI마다 행, f=1 minterm마다 열을 만든다. 각 열에, 그 minterm을 덮는 PI들의
-   인덱스를 적어둔다. 덮는지 판정은 `(row.coveredMinterms >> mintermValue) & 1`.
-2. 어떤 열을 덮는 PI가 딱 하나면 그 PI는 EPI다. `confirmedEPI`에 넣고, 그 EPI가
-   덮는 열은 전부 covered 처리.
-3. covered된 열을 지우고 남은 행/열을 반환한다. (행 지배·열 지배로 더 줄이는 건
-   선택 사항. 시간 없으면 생략해도 search가 답은 낸다.)
+   인덱스(`coveredByRows`)를 적어둔다. 덮는지 판정은 `(row.coveredMinterms >> mintermValue) & 1`.
+2. 아래 축소를 **변화가 없을 때까지 반복**한다(고정점 do-while):
+   - **EPI 확정**: 어떤 열을 덮는 PI가 딱 하나면 그 PI는 EPI. `confirmedEPI`에 넣고
+     그 EPI가 덮는 열은 전부 covered 처리.
+   - **열 지배**: 열 A를 덮는 PI 집합이 열 B의 것을 포함하면(A⊇B) A(더 쉬운 열)를 지운다.
+   - **행 지배**: PI X가 덮는 (남은)열이 PI Y에 포함되고(X⊆Y) Y의 리터럴이 더 적으면 X를 지운다.
+     비용은 `popcount(mask)`로 비교하되 **`>=`가 아니라 `>`(strict)**. 동률이면 두 PI 다
+     최적해에 쓰일 수 있어, 지우면 "전부 출력"이 깨지기 때문(아래 결정된 것 참고).
+3. 끝나면 covered된 열·selected된 행을 빼고, **남은 행 기준으로 `coveredByRows`를 다시
+   매겨** 반환한다(행을 솎으면 인덱스가 밀리므로 재계산 필수).
 
-주의: `minterms` 인자엔 f=1만 들어와야 한다. don't care가 섞이면 EPI 판정이
-틀어진다. 이건 main에서 보장하고 있다.
+주의:
+- `minterms` 인자엔 f=1만 들어와야 한다. don't care가 섞이면 EPI 판정이 틀어진다(main이 보장).
+- 어떤 minterm을 덮는 PI가 하나도 없으면(빈 열) 덮을 수 없는 입력이다. 빈 열은 모든 열의
+  부분집합이라 열 지배가 다른 열을 다 지워버리니, 정상 입력(모든 f=1을 PI가 덮음)을 전제로 한다.
+
+세부 구현·테스트는 `docs/chart.md` 참고.
 
 ### search — solveCyclicCore
 
@@ -183,12 +192,18 @@ Cost: product count = 3, literal count = 7
 ```
 
 
+## 결정된 것
+
+- **비용이 같은 최적해는 전부 출력한다.** 그래서 search는 최소 product 해를 모두 모으고
+  (product 가지치기에 `>=`가 아닌 `>` 사용), chart의 행 지배도 비용 동률 PI는 지우지
+  않는다(strict `>`). 동률 해를 하나라도 잃으면 안 되니, 상류(chart)에서 후보 PI를 함부로
+  제거하지 않는 게 핵심.
+
 ## 아직 안 정한 것 (회의 필요)
 
 - `x1`을 `value`의 MSB(bit n-1)로 볼지 LSB(bit 0)로 볼지. 이게 어긋나면 식은
   맞는데 변수 번호만 뒤집혀 나온다. `termToString`이 이 약속에 의존한다.
 - `inverterCount` 정의. 일단 `popcount(~value & ~mask & nBitMask)`로 잠정 합의.
-- 비용이 같은 최적해가 여러 개일 때 전부 출력할지, 하나만 낼지.
 
 
 ## 디렉토리
