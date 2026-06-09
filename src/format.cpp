@@ -6,7 +6,6 @@
 
 InputData parseInput(std::istream& in) {
     // TODO(방하영): 변수 수, minterm 수, dc 수, minterm 목록, dc 목록 순으로 읽기.
-    (void)in;
     InputData data;
     data.numVars = 0;
 
@@ -34,15 +33,37 @@ InputData parseInput(std::istream& in) {
     return data;
 }
 
-std::string termToString(const CombinedTerm& term, int numVars) { // 최종 식 찾기
+std::string termToString(const CombinedTerm& term, int numVars) {
     // TODO(방하영): 변수 자리마다 mask=1이면 생략, value=1이면 xi, value=0이면 xi'.
     std::string result = "";
     // 변수 수만큼 자리 검사
     for (int i = 0; i < numVars; ++i) {
         // 왼쪽부터 차례대로 읽어서 1인 부분 찾기
         int bit_pos = numVars - i - 1;
+
+        //mask=1이면 생략 함수 선언
+        bool is_dont_care = (term.mask & (1ULL << bit_pos)) != 0; 
+
+        if (!is_dont_care) {
+            //value=1이면 xi, value=0이면 xi'
+            bool bit_val = (term.value & (1ULL << bit_pos)) != 0;
+
+            result += "x" + std::to_string(i + 1);
+
+            if (!bit_val) { //비트 값이 0이면 기호추가
+                result += "'";
+            }
+
+        }
     }
-}
+    if (result.empty()) {
+        return "1";
+    }
+    return result;
+        
+    }
+
+
 
 
 void printResult(const std::vector<SOPCandidate>& candidates, int numVars) {
@@ -69,6 +90,7 @@ void printResult(const std::vector<SOPCandidate>& candidates, int numVars) {
                 std::cout << " + ";
             }
         }
+        std::cout << "\n";
         // 마지막 Cost 출력
         std::cout << "Cost: product count = " << candidate.productCount << ", literal count = " << candidate.literalCount << "\n\n";
     }
