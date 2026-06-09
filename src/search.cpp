@@ -38,19 +38,20 @@ void recursive(
     }
 
     if (minIndex == -1){  // 고를 열이 없다 = 다 덮었다
+        int p = (int)currentPIs.size();
+        // clear-on-improvement: 더 작은 product 찾으면 기존(큰) 답 전부 버리고 새로 시작.
+        //   strict '<' 라야 동점 최적해는 안 지운다. push '전에' clear 해야 방금 답이 안 날아감.
+        if (p < bestProduct){
+            SOPCandidates.clear();
+            bestProduct = p;
+        }
+
         SOPCandidate candidate;
-        candidate.selectedPIs = currentPIs;  // 아직 탐색으로 고른 PI만 담음. 앞에 EPI(chart.confirmedEPI)도 붙여야 진짜 답
-
-
-        // 비용은 일단 0. README 공식으로 채울 자리
-        candidate.literalCount = 0;
+        candidate.selectedPIs = currentPIs;  // EPI는 solveCyclicCore에서 마지막에 앞에 붙임
+        candidate.literalCount = 0;          // 비용은 selectMinimumCost가 채움
         candidate.inverterCount = 0;
 
-        SOPCandidates.push_back(candidate);  // 아래 exclude 분기 덕에 같은 집합은 애초에 한 번만 만들어짐 -> 여기선 그냥 넣으면 됨(잎에서 중복검사 불필요)
-        if((int)currentPIs.size()<bestProduct){
-            bestProduct = (int)currentPIs.size();
-        }
-        // 그리고 이번 product가 더 작으면 bestProduct도 갱신 (위 가지치기가 쓸 기준값)
+        SOPCandidates.push_back(candidate);  // 이제 p == bestProduct 라 안전하게 push
         return;
     }
 
