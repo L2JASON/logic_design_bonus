@@ -44,6 +44,7 @@ struct SOPCandidate {
     std::vector<CombinedTerm> selectedPIs;  // EPI + 탐색으로 고른 PI 전부
     int literalCount;   // 리터럴 총개수
     int inverterCount;  // 보수(') 붙은 리터럴 수
+    int productCount; // 프로덕트 총 수
 };
 
 struct ChartResult {
