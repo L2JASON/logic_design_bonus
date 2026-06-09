@@ -34,8 +34,11 @@ void recursive(
         SOPCandidates.push_back(candidate);
         return;
     }
-
+    for(int l = 0; l<chart.uncoveredCols[minIndex].coveredByRows.size(); l++){
+        //새로운 배열을 생성해서 커버하는 민텀 개수가 많은 pi번호부터 정렬, 다음 for문 조건문을 j<새로운배열.size()로 수정
+    }
     for(j = 0; j<chart.uncoveredCols[minIndex].coveredByRows.size(); j++){
+        
         int piIndex = chart.uncoveredCols[minIndex].coveredByRows[j];
 
         currentPIs.push_back(chart.remainingRows[piIndex].term);
