@@ -3,8 +3,13 @@
 
 #include "search.h"
 
-void recursive(Bits currentCovered, const ChartResult& chart){
-    int i, j, min = 64, minIndex;
+void recursive(
+    Bits currentCovered, 
+    const ChartResult& chart,
+    std::vector<CombinedTerm>& currentPIs,
+    std::vector<SOPCandidate>& SOPCandidates
+){
+    int i, j, min = 64, minIndex = -1;
 
 
     for(i = 0; i<chart.uncoveredCols.size(); i++){
@@ -21,14 +26,26 @@ void recursive(Bits currentCovered, const ChartResult& chart){
     }
 
     if (minIndex == -1){
+        SOPCandidate candidate;
+        candidate.selectedPIs = currentPIs;
+        candidate.literalCount = 0;
+        candidate.inverterCount = 0;
+
+        SOPCandidates.push_back(candidate);
         return;
     }
 
     for(j = 0; j<chart.uncoveredCols[minIndex].coveredByRows.size(); j++){
         int piIndex = chart.uncoveredCols[minIndex].coveredByRows[j];
 
-        //수정중...
-        recursive(currentCovered, chart);
+        currentPIs.push_back(chart.remainingRows[piIndex].term);
+
+        Bits piMinterms = chart.remainingRows[piIndex].term.coveredMinterms;
+        Bits nextCovered = currentCovered | piMinterms;
+
+        recursive(nextCovered, chart, currentPIs, SOPCandidates);
+
+        currentPIs.pop_back();
     }
 
     return;
@@ -42,5 +59,21 @@ std::vector<SOPCandidate> solveCyclicCore(
     //              PI들로 분기하며 DFS. 최소 비용 조합(들)을 모아 반환.
     Bits coveredValue = 0;
 
-    recursive(coveredValue, chart);
+    std::vector <CombinedTerm> currentPIs;
+
+    std::vector <SOPCandidate> SOPCandidates;
+
+    recursive(coveredValue, chart, currentPIs, SOPCandidates);
+
+    
+
+    for(int k = 0; k<currentPIs.size(); k++){
+    int lit = 0;
+    int inv = 0;
+
+    SOPCandidates[k].literalCount = lit;
+    SOPCandidates[k].inverterCount = inv;
+    }
+
+    return SOPCandidates;
 }
