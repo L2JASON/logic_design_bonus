@@ -4,6 +4,7 @@
 // 가지치기 조건, MRV, 비용 공식은 README의 search 항목에.
 
 #include "search.h"
+#include "cost.h"      // 비용 계산 + 최소비용 선택 (이준혁 cost 모듈)
 #include "algorithm"
 
 // 안 덮인 민텀들을 PI로 마저 덮는 DFS. 한 번 호출 = 트리에서 한 칸 내려가기.
@@ -104,8 +105,11 @@ std::vector<SOPCandidate> solveCyclicCore(
     std::vector<bool> excluded(chart.remainingRows.size(), false); // 처음엔 금지된 PI 없음
     recursive(coveredValue, chart, currentPIs, SOPCandidates, bestProduct, excluded);
     
-    // 마지막: 모인 답들 중 진짜 최소비용만 남긴다. (exclude 분기 덕에 중복은 이미 없음)
-    //   product 최소 -> 그 중 literal 최소 -> 그 중 inverter 최소 순으로 거른다 (동점은 다 남김)
+    // EPI를 각 후보 앞에 붙인다 (cyclic core로 고른 PI + 필수항 EPI = 진짜 최종 답).
+    for (SOPCandidate& c : SOPCandidates)
+        c.selectedPIs.insert(c.selectedPIs.begin(),
+                             chart.confirmedEPI.begin(), chart.confirmedEPI.end());
 
-    return SOPCandidates;
+    // 비용 채우고 최소만 남겨 반환 (product 최소는 DFS clear가 보장, 여기선 literal -> inverter).
+    return selectMinimumCost(SOPCandidates, numVars);
 }
