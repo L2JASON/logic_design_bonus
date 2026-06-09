@@ -4,7 +4,7 @@
 Branch & Bound로 최소 SOP(곱의 합) 식을 구하는 C++ 프로그램이다.
 
 담당:
-- 이준혁(조장) — 통합(`main`), PI Chart + EPI + 축소(`chart`)
+- 이준혁(조장) — 통합(`main`), PI Chart + EPI + 축소(`chart`), 비용 계산+최소비용 선택(`cost`)
 - 김태현 — Prime Implicant 유도(`qm`)
 - 이신형 — Cyclic Core 탐색(`search`)
 - 방하영 — 입력 파싱 + 출력(`format`)
@@ -32,7 +32,8 @@ GCC/Clang 전용이다. 팀원 중 Visual Studio(MSVC)를 쓰면 컴파일이 �
 parseInput          입력 5줄 -> InputData
    -> generatePI            (김태현)  PI 목록
    -> buildAndReduceChart   (이준혁)  EPI + 남은 행/열
-   -> solveCyclicCore       (이신형)  최소 비용 해(들)
+   -> solveCyclicCore       (이신형)  cyclic core DFS 탐색
+        -> selectMinimumCost (이준혁)  비용 계산 후 최소비용 해(들) 선택
    -> printResult           (방하영)  SOP 식 + 비용 출력
 ```
 
@@ -159,20 +160,28 @@ merged.coveredMinterms = a.coveredMinterms | b.coveredMinterms;
 EPI로 다 못 덮은 나머지를, 최소 개수의 PI로 마저 덮는 문제다(minimum set cover).
 DFS로 풀되:
 
-- 지금까지 고른 product 수가 기존 최적 기록을 **넘으면** 그 가지는 버린다.
-  여기서 `>=`가 아니라 `>`인 게 중요하다. 비용이 같은 다른 최적해도 살려야 하니까.
-- 안 덮인 열 중 **덮을 수 있는 PI가 가장 적은 열**을 골라, 그 열을 덮는 PI들로만
-  분기한다(MRV). 이렇게 열을 고정해두면 {A,B}와 {B,A}를 둘 다 탐색하는 순열 중복이
-  생기지 않는다.
+- **MRV**: 안 덮인 열 중 **덮을 수 있는 PI가 가장 적은 열**을 골라, 그 열을 덮는
+  PI들로만 분기한다. 어떤 답이든 그 열은 반드시 덮어야 하니 누락이 없다.
+- **분기 순서**: 그 열을 덮는 PI를 "안 덮인 민텀을 많이 덮는 순"으로 정렬해 시도한다
+  (`std::sort`). 좋은 답을 일찍 만나면 아래 가지치기가 더 잘 듣는다(속도용).
+- **가지치기**: 지금까지 고른 product 수가 최적 기록을 **넘으면**(`>=` 아니라 `>`)
+  그 가지는 버린다. 동률 최적해는 살려야 하니 strict `>`.
+- **중복 제거(exclude 분기)**: 한 열의 PI를 순서대로 시도하며, 앞서 시도한 PI를
+  형제 가지에서 금지(`excluded`)한다. 답마다 '제일 먼저 고른 PI'가 하나로 정해져
+  {A,B}와 {B,A} 같은 순서 중복 가지가 아예 생성되지 않는다. (MRV만으로는 막히지 않음)
+- **clear-on-improvement**: 더 작은 product를 찾으면(strict `<`) 모아둔 답을 전부
+  비우고 새로 시작한다. 그래서 최종 후보엔 항상 최소 product만 남는다.
 - 재귀 들어가기 전에 상태(고른 PI, 커버 상황)를 백업하고 나오면 되돌린다.
   커버 상황을 `Bits` 하나로 들고 다니면 백업·복구가 값 복사 한 번으로 끝난다.
 
-비용은 이렇게 센다:
+비용 계산·최소비용 선택은 `cost` 모듈(`selectMinimumCost`)이 맡는다. search는 후보만
+모아 넘기고, EPI를 각 후보 앞에 붙인 뒤 그 함수를 호출해 반환한다. 비용은 이렇게 센다:
 
 ```cpp
-productCount  = selectedPIs.size();
-literalCount  = Σ (numVars - popcount(term.mask));               // don't care 자리 빼기
-inverterCount = Σ popcount(~term.value & ~term.mask & nBitMask); // value=0, mask=0 인 자리
+productCount  = selectedPIs.size();                              // 항 개수
+literalCount  = Σ (numVars - popcount(term.mask));               // 항마다 합산(occurrence)
+// inverter는 '변수당 1개'(공유). 모든 항의 보수 자리를 OR로 합친 뒤 한 번 센다:
+inverterCount = popcount( OR_t (~t.value & ~t.mask & nBitMask) );
 ```
 
 ### format — parseInput / printResult / termToString
@@ -198,12 +207,13 @@ Cost: product count = 3, literal count = 7
   (product 가지치기에 `>=`가 아닌 `>` 사용), chart의 행 지배도 비용 동률 PI는 지우지
   않는다(strict `>`). 동률 해를 하나라도 잃으면 안 되니, 상류(chart)에서 후보 PI를 함부로
   제거하지 않는 게 핵심.
-
-## 아직 안 정한 것 (회의 필요)
-
-- `x1`을 `value`의 MSB(bit n-1)로 볼지 LSB(bit 0)로 볼지. 이게 어긋나면 식은
-  맞는데 변수 번호만 뒤집혀 나온다. `termToString`이 이 약속에 의존한다.
-- `inverterCount` 정의. 일단 `popcount(~value & ~mask & nBitMask)`로 잠정 합의.
+- **`x1` = `value`의 MSB(bit n-1)**, `xn` = LSB(bit 0). `format.cpp`의 `termToString`이
+  이미 이렇게 구현돼 있다(`i=0 → x1`, `bit_pos = numVars-1-i`). minterm 번호를 그대로
+  `value`에 넣는 `qm`의 방식과도 일치하는 표준 컨벤션.
+- **`inverterCount`는 '변수당 1개'(공유 인버터)로 센다.** 과제 명세에 비용 지표 정의가
+  없어 팀이 정한 것 — 단일 레일(보수는 인버터로 만듦) 기준 실제 게이트 수. 같은 `x'`이
+  여러 항에 나와도 1개. (literal은 반대로 항마다 합산 = AND 입력 수. 비대칭이 의도된 것)
+- **비용 비교 순서는 `product → literal → inverter`**, 작을수록 좋은 해.
 
 
 ## 디렉토리
@@ -216,6 +226,7 @@ qm-team5/
 │   ├── qm.h / .cpp                      (김태현)
 │   ├── chart.h / .cpp                   (이준혁)
 │   ├── search.h / .cpp                  (이신형)
+│   ├── cost.h / .cpp     비용 계산+최소비용 선택 (이준혁)
 │   └── format.h / .cpp                  (방하영)
 ├── tests/
 │   └── input1~3.txt
