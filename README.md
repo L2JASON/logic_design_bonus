@@ -4,7 +4,7 @@
 Branch & Bound로 최소 SOP(곱의 합) 식을 구하는 C++ 프로그램이다.
 
 담당:
-- 이준혁(조장) — 통합(`main`), PI Chart + EPI + 축소(`chart`), 비용 계산+최소비용 선택(`cost`)
+- 이준혁(조장) — 통합(`main`/`ui`), PI Chart + EPI + 축소(`chart`), 비용 계산+최소비용 선택(`cost`)
 - 김태현 — Prime Implicant 유도(`qm`)
 - 이신형 — Cyclic Core 탐색(`search`)
 - 방하영 — 입력 파싱 + 출력(`format`)
@@ -12,14 +12,30 @@ Branch & Bound로 최소 SOP(곱의 합) 식을 구하는 C++ 프로그램이다
 
 ## 빌드 & 실행
 
+`make`로 빌드한다(MinGW은 `mingw32-make`). 산출물은 `qm`(Windows는 `qm.exe`).
+
+```bash
+make            # 빌드
+make run        # 빌드 후 대화형 메뉴 실행
+make clean      # 산출물 삭제
+```
+
+make가 없으면 직접 컴파일해도 된다.
+
 ```bash
 g++ -std=c++17 -o qm src/*.cpp
 ```
 
+실행은 두 모드다.
+
 ```bash
-./qm tests/input1.txt   # 파일에서 입력
-./qm                    # 인자 없으면 키보드에서 입력
+./qm                    # 인자 없으면 대화형 메뉴 (직접 입력 / 파일 / 예제 / 종료)
+./qm input1.txt         # 파일 경로를 주면 그 파일로 한 번 실행
 ```
+
+대화형 메뉴의 "직접 입력"도 형식 안내만 하고 실제 파싱은 `parseInput`을 그대로
+쓴다 — 그래서 파일 모드와 입력 형식이 완전히 같다. 두 경로 모두 파이프라인 직전에
+`runPipeline`의 `validateInput`을 거친다(아래 참고).
 
 컴파일러는 `g++` 기준이다. popcount는 `__builtin_popcountll`을 쓰는데 이건
 GCC/Clang 전용이다. 팀원 중 Visual Studio(MSVC)를 쓰면 컴파일이 안 되니,
@@ -37,6 +53,11 @@ parseInput          입력 5줄 -> InputData
    -> printResult           (방하영)  SOP 식 + 비용 출력
 ```
 
+이 파이프라인은 `ui.cpp`의 `runPipeline` 하나로 묶여 있고, 파일 모드(`main`)와
+대화형 메뉴가 같은 함수를 쓴다. `runPipeline`은 맨 앞에서 `validateInput`으로
+입력값을 검사한다(변수 개수 1~6, 모든 minterm/dontcare 번호 0~2^n-1). 잘못된
+입력이면 파이프라인을 돌리지 않고 메시지만 출력한다.
+
 단계 사이에 오가는 자료형은 전부 `src/types.h`에 있다. 이 파일이 4명의
 공통 계약이라, 필드 이름이나 타입을 한 명이 바꾸면 나머지가 다 깨진다.
 바꿀 일이 생기면 먼저 팀에 알릴 것.
@@ -50,6 +71,10 @@ parseInput          입력 5줄 -> InputData
 동작도 제각각이다. `uint64_t`는 어디서나 정확히 64비트에 부호가 없어, 64칸을
 전부 데이터로 쓸 수 있다. 게다가 Example1이 변수 6개라 minterm 번호가 0~63까지
 나오는데, `coveredMinterms`에 63번 비트까지 세워야 해서 32비트로는 모자란다.
+
+거꾸로 이게 **변수 개수의 상한(n≤6)**이기도 하다. n=7이면 minterm 번호가 64를
+넘어 `1ULL << mintermNumber`(qm)가 64비트 밖으로 나가 표현할 수 없다. 그래서
+`validateInput`이 n>6 입력을 거부한다.
 
 시프트할 때는 `1ULL`을 써야 한다. `1 << 63`은 `1`이 `int`라서 UB가 되고,
 `1ULL << 63`이라야 안전하다.
@@ -75,9 +100,9 @@ minterm  :  … m3 m2 m1 m0      예) 0b1010 -> m1, m3 을 덮음
 
 그래서 "minterm k를 덮는가" 판정은 `(coveredMinterms >> k) & 1ULL`이고,
 반대로 비트마스크를 minterm 번호 목록으로 풀려면 LSB부터 한 칸씩 검사하면 된다
-(`chart.cpp`의 `mintermsOf` 참고). 이 방향은 **고정 약속**이다 — 아래
-"아직 안 정한 것"의 `value` x1 자리(MSB냐 LSB냐) 문제와는 별개이고,
-`coveredMinterms`는 어느 모듈에서나 LSB=m0으로 본다.
+(`chart.cpp`의 `mintermsOf` 참고). 이 방향은 **고정 약속**이다 — `value`의 x1
+자리(MSB, "결정된 것" 참고)와는 좌표계가 별개이고, `coveredMinterms`는 어느
+모듈에서나 LSB=m0으로 본다.
 
 우리가 실제로 쓰는 건 하위 n비트뿐이라, 상위 비트를 잘라낼 때 `makeNBitMask(n)`
 (하위 n비트만 1인 마스크)을 쓴다.
@@ -221,14 +246,14 @@ Cost: product count = 3, literal count = 7
 ```
 qm-team5/
 ├── src/
-│   ├── types.h        공통 자료형 (계약)
-│   ├── main.cpp       파이프라인        (이준혁)
-│   ├── qm.h / .cpp                      (김태현)
-│   ├── chart.h / .cpp                   (이준혁)
-│   ├── search.h / .cpp                  (이신형)
-│   ├── cost.h / .cpp     비용 계산+최소비용 선택 (이준혁)
-│   └── format.h / .cpp                  (방하영)
-├── tests/
-│   └── input1~3.txt
+│   ├── types.h         공통 자료형 (계약)
+│   ├── main.cpp        진입점: 인자 있으면 파일, 없으면 메뉴   (이준혁)
+│   ├── ui.h / .cpp     대화형 메뉴 + runPipeline + validateInput (이준혁)
+│   ├── qm.h / .cpp     Prime Implicant 유도                 (김태현)
+│   ├── chart.h / .cpp  PI Chart + EPI + 축소                (이준혁)
+│   ├── search.h / .cpp Cyclic Core 탐색                     (이신형)
+│   ├── cost.h / .cpp   비용 계산 + 최소비용 선택            (이준혁)
+│   └── format.h / .cpp 입력 파싱 + 출력                     (방하영)
+├── Makefile
 └── README.md
 ```
