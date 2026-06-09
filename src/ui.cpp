@@ -10,12 +10,35 @@
 
 #include <iostream>
 #include <fstream>
-#include <sstream>
 #include <string>
 #include <vector>
 #include <limits>
 
+// 입력값이 파이프라인에서 안전한지 공통 검증 (직접 입력/파일/CLI 모두 여기서 걸린다).
+// 형식 파싱은 format(parseInput)이 맡고, UI는 안내만 한다 — 값의 유효 범위는 여기서 본다.
+//  - n은 1~6: coveredMinterms가 64비트라 minterm 번호 0~63까지만 비트로 담긴다
+//             (qm.cpp의 1ULL << mintermNumber). 벗어나면 표현 불가/UB.
+//  - 모든 minterm/dontcare 번호는 0 ~ 2^n-1.
+static bool validateInput(const InputData& input) {
+    if (input.numVars < 1 || input.numVars > 6) {
+        std::cout << "변수 개수 n은 1~6이어야 합니다 (minterm 0~63만 표현 가능).\n";
+        return false;
+    }
+    if (input.minterms.empty()) {
+        std::cout << "f=1 minterm이 하나도 없습니다.\n";
+        return false;
+    }
+    const long long maxMinterm = (1LL << input.numVars) - 1;  // 0 ~ 2^n-1
+    for (int m : input.minterms)
+        if (m < 0 || m > maxMinterm) { std::cout << "minterm " << m << " 이(가) 0~" << maxMinterm << " 범위를 벗어났습니다.\n"; return false; }
+    for (int d : input.dontCares)
+        if (d < 0 || d > maxMinterm) { std::cout << "don't care " << d << " 이(가) 0~" << maxMinterm << " 범위를 벗어났습니다.\n"; return false; }
+    return true;
+}
+
 void runPipeline(const InputData& input) {
+    if (!validateInput(input)) return;
+
     std::vector<CombinedTerm> pis =
         generatePI(input.minterms, input.dontCares, input.numVars);
 
@@ -41,44 +64,21 @@ void clearLine() {
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 }
 
-// "0 1 2 5" 처럼 한 줄에 들어온 정수들을 파싱한다. 빈 줄이면 빈 벡터.
-std::vector<int> readIntLine() {
-    std::string line;
-    std::getline(std::cin, line);
-    std::vector<int> out;
-    std::istringstream iss(line);
-    int v;
-    while (iss >> v) out.push_back(v);
-    return out;
-}
-
-// n, minterm 목록, don't care 목록을 직접 받아 검증한다.
-// 잘못된 입력이면 false를 돌려주고 메뉴로 돌아간다.
+// 직접 입력: 형식만 안내하고, 실제 파싱은 format의 parseInput에 그대로 맡긴다.
+// 파일 모드와 같은 함수를 쓰므로 입력 형식이 100% 일치한다. 값의 유효성(n 범위,
+// 번호 범위)은 runPipeline의 validateInput이 공통으로 검사한다 — UI는 안내까지만.
 bool readDirectInput(InputData& input) {
-    std::cout << "변수 개수 n (1~20): ";
-    int n;
-    if (!(std::cin >> n)) { clearLine(); std::cout << "숫자를 입력해 주세요.\n"; return false; }
-    clearLine();  // n 뒤의 개행 제거 (다음 getline 대비)
-    if (n < 1 || n > 20) { std::cout << "n은 1~20 범위여야 합니다.\n"; return false; }
-
-    const long long maxMinterm = (1LL << n) - 1;  // 0 ~ 2^n-1
-    std::cout << "f=1 minterm (공백 구분, 예: 0 1 2 5): ";
-    std::vector<int> minterms = readIntLine();
-    std::cout << "don't care (없으면 그냥 Enter): ";
-    std::vector<int> dontCares = readIntLine();
-
-    if (minterms.empty()) { std::cout << "f=1 minterm이 하나도 없습니다.\n"; return false; }
-
-    // 범위 검사: 0 <= 값 <= 2^n-1
-    auto inRange = [&](int v) { return v >= 0 && v <= maxMinterm; };
-    for (int m : minterms)
-        if (!inRange(m)) { std::cout << "minterm " << m << " 이(가) 0~" << maxMinterm << " 범위를 벗어났습니다.\n"; return false; }
-    for (int d : dontCares)
-        if (!inRange(d)) { std::cout << "don't care " << d << " 이(가) 0~" << maxMinterm << " 범위를 벗어났습니다.\n"; return false; }
-
-    input.numVars   = n;
-    input.minterms  = minterms;
-    input.dontCares = dontCares;
+    std::cout <<
+        "입력 형식 — 아래 순서대로 숫자를 공백/줄바꿈으로 구분해 입력하세요:\n"
+        "  1) 변수 개수 n (1~6)\n"
+        "  2) f=1 minterm 개수\n"
+        "  3) don't care 개수\n"
+        "  4) f=1 minterm 목록\n"
+        "  5) don't care 목록\n"
+        "  예)  4  4  1   0 1 2 5   9\n"
+        "입력: ";
+    input = parseInput(std::cin);
+    clearLine();  // parseInput이 남긴 줄을 정리 (다음 메뉴 입력 대비)
     return true;
 }
 
